@@ -1,0 +1,138 @@
+syntax = "proto3";
+
+package docs;
+
+service DocQueueService {
+  rpc getDocQueueList (DocQueueListRequest) returns (DocQueueListResponse);
+  rpc updateSiProcessingStatus (UpdateSiProcessingStatusRequest) returns (UpdateSiProcessingStatusResponse);
+  rpc getActionGoToBooking (GetActionGoToBookingRequest) returns (GetActionGoToBookingResponse);
+}
+
+message DocQueueListRequest {
+  string bookingNumber = 1;
+  int32 page = 2;
+  int32 size = 3;
+}
+
+message DocQueueListResponse {
+  int32 status = 1;
+  int32 code = 2;
+  string message = 3;
+  DocQueuePagination data = 4;
+}
+
+message DocQueuePagination{
+  int32 total = 1;
+  repeated DocQueueItem items = 2;
+}
+
+message DocQueueItem{
+  string queueNumber = 1;
+  string bookingNumber = 2;
+  bool isEsiAttached = 3;
+  bool isEmailSiAttached = 4;
+  double totalSi = 5;
+  string timeLeft = 6;
+  string priority = 7;
+  string picId = 8;
+  string siKind = 9;
+  bool isBlDocumentInput = 10;
+  bool isBlRate = 11;
+  bool isBlAudit = 12;
+  bool isBlDraftFaxOut = 13;
+  string siProcessingStatus = 14;
+  string siSourceChannel = 15;
+  string processingTool = 16;
+  string esiUploadStatus = 17;
+  string shineUploadStatus = 18;
+  string queueRemark = 19;
+  string timeLeftCategory = 20;
+  string splitStatusCode = 21;
+  int64 siReceivedAt = 22;
+  int64 siTransferredAt = 23;
+  int32 queueStatus = 24;
+  int64 createdAt = 25;
+  string createdBy = 26;
+  int64 updatedAt = 27;
+  string updatedBy = 28;
+  string id = 29;
+  BookingInfo bookingInfo = 30;
+  InquiryStatus inquiryStatus = 31;
+  string amsDue = 32;
+}
+
+message BookingInfo {
+  string queueNumber = 1;
+  string bookingStaffName = 2;
+  int64 cargoReceivedAt = 3;
+  string serviceLaneCode = 4;
+  string vvd = 5;
+  string mf = 6;
+  string polCode = 7;
+  int64 etd = 8;
+  int64 dct = 9;
+  string bookingOfficeCode = 10;
+  string outboundSaleOfficeCode = 11;
+  string outboundRepresentativeOfficeCode = 12;
+  string shipperName = 13;
+  string podCode = 14;
+  int64 bdr = 15;
+  bool isDangerCargo = 16;
+  bool isReeferCargo = 17;
+  bool isAwkwardCargo = 18;
+  bool isBbCargo = 19;
+}
+
+message InquiryStatus {
+  string queueNumber = 1;
+  string lastestInquiryStatus = 2;
+  string inquiryChannel = 3;
+  string blInquiryStatus = 4;
+  string resolvedInquiry = 5;
+  string resolvedAmendment = 6;
+  int32 inquiryFrequency = 7;
+  int32 inquiryNewReply = 8;
+  string returnFromUserId = 9;
+  string returnToUserId = 10;
+}
+
+message UpdateSiProcessingStatusRequest {
+    string docQueueId = 1;
+    string status = 2;
+}
+
+message UpdateSiProcessingStatusResponse {
+    int32 status = 1;
+    int32 code = 2;
+    string message = 3;
+    bool data = 4;
+}
+
+message GetActionGoToBookingRequest {
+  string docQueueId = 1;
+}
+
+message Button {
+    string label = 1;
+    string url = 2;
+}
+
+message Arguments {
+    string title = 1;   // this will be null for action "redirect"
+    string description = 2;   // this will be null for action "redirect"
+    string url = 3;
+    repeated Button buttons = 4;   // this will be null for action "redirect"
+}
+
+
+message ActionGoToBookingPayload {
+    string action = 1;
+    Arguments args = 2;
+}
+
+message GetActionGoToBookingResponse {
+    int32 status = 1;
+    int32 code = 2;
+    string message = 3;
+    ActionGoToBookingPayload data = 4;
+}

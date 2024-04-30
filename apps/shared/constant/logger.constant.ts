@@ -1,0 +1,1 @@
+export const CONFIG_WINSTON = 'CONFIG_WINSTON';

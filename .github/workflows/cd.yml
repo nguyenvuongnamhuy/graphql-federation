@@ -1,0 +1,99 @@
+name: CD Pipeline
+
+on:
+  workflow_call:
+    inputs:
+      environment:
+        required: true
+        type: string
+      envVariableFilePath:
+        required: true
+        type: string
+    secrets:
+      GCP_SERVICE_ACCOUNT_KEY:
+        required: true
+      ARTIFACT_REGISTRY_DOMAIN:
+        required: true
+      ARTIFACT_REGISTRY_REPOSITORY:
+        required: true
+      ARTIFACT_REGISTRY_IMAGE:
+        required: true
+
+jobs:
+  build:
+    name: setup, build, type-check
+    runs-on: [self-hosted]
+    strategy:
+      matrix:
+        node-version: [18.x]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          registry-url: https://npm.pkg.github.com/
+          scope: '@ocean-network-express'
+
+      - name: Cache node modules
+        id: cache-npm
+        uses: actions/cache@v3
+        env:
+          cache-name: cache-node-modules
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-build-${{ env.cache-name }}-
+            ${{ runner.os }}-build-
+            ${{ runner.os }}-
+
+      - if: ${{ steps.cache-npm.outputs.cache-hit != 'true' }}
+        name: List the state of node modules
+        continue-on-error: true
+        run: npm list
+
+      - name: install dependencies
+        run: npm ci
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GH_REGISTRY_PACKAGES }}
+
+      - name: Build
+        run: npm run build
+
+  deploy:
+    name: Deploy to ${{ inputs.environment }} env
+    runs-on: ubuntu-latest
+    needs: [build]
+    environment: ${{ inputs.environment }}
+
+    permissions:
+      contents: 'read'
+      id-token: 'write'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # Authenticate with Google Cloud
+      - name: Google Authentication
+        uses: 'google-github-actions/auth@v2'
+        with:
+          credentials_json: '${{ secrets.GCP_SERVICE_ACCOUNT_KEY }}'
+
+      - name: Google CLI
+        uses: google-github-actions/setup-gcloud@v2
+
+      # Authenticate with Artifact
+      - name: Artifact repository setup
+        run: |-
+          gcloud auth configure-docker --quiet
+          gcloud auth configure-docker ${{ secrets.ARTIFACT_REGISTRY_DOMAIN }} --quiet
+
+      #Build and Push docker
+      - id: docker-push-tagged
+        name: Tag Docker image and push to Google Artifact Registry
+        uses: docker/build-push-action@v2
+        with:
+          push: true
+          tags: |
+            ${{secrets.ARTIFACT_REGISTRY_REPOSITORY}}/${{ secrets.ARTIFACT_REGISTRY_IMAGE }}:${{ github.sha }}
+            ${{secrets.ARTIFACT_REGISTRY_REPOSITORY}}/${{ secrets.ARTIFACT_REGISTRY_IMAGE }}:latest

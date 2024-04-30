@@ -1,0 +1,48 @@
+name: Update Kustomize Process
+on:
+  workflow_call:
+    inputs:
+      environment:
+        required: true
+        type: string
+      path:
+        required: false
+        type: string
+        default: 'apps/om-newblink-apigateway-service/k8s/overlays/'
+    secrets:
+      PAT_TOKEN:
+        required: true
+      ARTIFACT_REGISTRY_REPOSITORY:
+        required: true
+      ARTIFACT_REGISTRY_IMAGE:
+        required: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    steps:
+      - name: Checkout Config Repo
+        uses: actions/checkout@v4
+        with:
+          repository: ocean-network-express/om-newblink-config
+          ref: main
+          token: ${{ secrets.PAT_TOKEN }}
+
+      - name: Config Git
+        run: |
+          git config user.name github-actions
+          git config user.email github-actions@github.com
+
+      - name: Setup kustomize
+        uses: imranismail/setup-kustomize@v2
+
+      - name: Update the image
+        run: |
+          GCP_IMAGE_NAME="${{secrets.ARTIFACT_REGISTRY_REPOSITORY}}/${{ secrets.ARTIFACT_REGISTRY_IMAGE }}:${{ github.sha }}"
+          REPO_PATH="${{ inputs.path }}${{ inputs.environment }}"
+          cd ${REPO_PATH}
+          kustomize edit set image deployment-image=${GCP_IMAGE_NAME}
+          git add .
+          git commit -m "Update image tag to `${{ github.sha }}`"
+          git push

@@ -1,0 +1,301 @@
+name: CI Pipeline
+
+on:
+  push:
+    branches:
+      - 'dev'
+      - 'release'
+      - 'main'
+      - 'base/*'
+  pull_request:
+    branches:
+      - 'dev'
+      - 'release'
+      - 'main'
+      - 'base/*'
+
+jobs:
+  build:
+    name: Build & Test
+
+    runs-on: [self-hosted]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Use Node.js 18.x
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18.x
+          registry-url: https://npm.pkg.github.com/
+          scope: '@ocean-network-express'
+
+      - name: Setup sonarqube
+        uses: warchant/setup-sonar-scanner@v4
+
+      - name: Cache node modules
+        id: cache-npm
+        uses: actions/cache@v3
+        env:
+          cache-name: cache-node-modules
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-build-${{ env.cache-name }}-
+            ${{ runner.os }}-build-
+            ${{ runner.os }}-
+
+      - name: List the state of node modules
+        if: ${{ steps.cache-npm.outputs.cache-hit != 'true' }}
+        continue-on-error: true
+        run: npm list
+
+      - name: Install npm dependencies
+        run: npm ci
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GH_REGISTRY_PACKAGES }}
+
+      - name: Lint code
+        id: execute-lint
+        if: ${{ always() }}
+        run: |
+          mkdir -p report/eslint
+          echo "{}" > report/eslint/eslint.json
+          echo "ESlint: No issue, Great!" > report/eslint/eslint.md
+          npm run lint:ci
+
+      - name: Run tests
+        if: ${{ always() }}
+        run: npm run test:ci
+
+      - name: SonarQube scan
+        id: sonarqube-scan
+        if: success()
+        run: |
+
+          if [ -n "${{github.event.number}}"  ]; then 
+            sonar-scanner \
+              -Dsonar.host.url=${{ secrets.SONAR_URL }} \
+              -Dsonar.login=${{ secrets.SONAR_TOKEN_OM_NEWBLINK }} \
+              -Dsonar.projectKey=${{ secrets.SONAR_PROJECT_KEY }} \
+              -Dsonar.pullrequest.key=${{github.event.number}} \
+              -Dsonar.pullrequest.branch=${{ github.HEAD_REF }} \
+              -Dsonar.pullrequest.base=${{ github.BASE_REF }} \
+              -Dsonar.pullrequest.github.repository=${{ github.repository }} \
+              -Dsonar.scm.provider=git \
+              -Dsonar.projectBaseDir=. \
+              -Dsonar.qualitygate.wait=false
+            
+            reportUrl="${{ secrets.SONAR_URL_PUBLIC }}/dashboard?id=${{ secrets.SONAR_PROJECT_KEY }}&pullRequest=${{github.event.number}}"
+            echo "sonarqube-report-url=$reportUrl" >> $GITHUB_OUTPUT
+
+          else
+            sonar-scanner \
+              -Dsonar.host.url=${{ secrets.SONAR_URL }} \
+              -Dsonar.login=${{ secrets.SONAR_TOKEN_OM_NEWBLINK }} \
+              -Dsonar.projectKey=${{ secrets.SONAR_PROJECT_KEY }} \
+              -Dsonar.scm.provider=git \
+              -Dsonar.projectBaseDir=. \
+              -Dsonar.qualitygate.wait=false
+
+            reportUrl="${{ secrets.SONAR_URL_PUBLIC }}/dashboard?id=${{ secrets.SONAR_PROJECT_KEY }}&branch=${GITHUB_REF##*/}"
+            echo "sonarqube-report-url=$reportUrl" >> $GITHUB_OUTPUT
+          fi;
+
+      - name: SonarQube quality gate
+        if: success()
+        id: sonarqube-quality-gate
+        uses: sonarsource/sonarqube-quality-gate-action@master
+        timeout-minutes: 10
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN_OM_NEWBLINK }}
+          SONAR_HOST_URL: ${{ secrets.SONAR_URL }}
+
+      - name: Unit test report
+        uses: dorny/test-reporter@v1
+        if: ${{ always() }}
+        with:
+          name: Unit test report
+          path: report/unit/*.xml
+          reporter: jest-junit
+
+      - name: Generate coverage report
+        uses: ArtiomTr/jest-coverage-report-action@v2
+        id: coverage
+        if: ${{ always() }}
+        with:
+          skip-step: all
+          output: report-markdown
+          coverage-file: report/coverage/jest.json
+          base-coverage-file: report/coverage/jest.json
+          annotations: none
+
+      - name: Annotate code linting results
+        uses: ataylorme/eslint-annotate-action@1.2.0
+        if: ${{ always() }}
+        with:
+          repo-token: '${{ secrets.GITHUB_TOKEN }}'
+          report-json: 'report/eslint/eslint.json'
+
+      - name: Write sonarqube to workflow job summary
+        id: publish-sonarqube-report
+        if: ${{ always() && steps.sonarqube-scan.outcome != 'skipped' }}
+        run: |
+          SUMMARY=$'## SonarQube report\n\nQuality Gate Result: **${{ steps.sonarqube-quality-gate.outputs.quality-gate-status }}**'
+          echo "$SUMMARY" >> $GITHUB_STEP_SUMMARY
+
+      - name: Write coverage report to workflow job summary
+        id: publish-coverage-report
+        if: ${{ always() }}
+        run: |
+          echo '${{ steps.coverage.outputs.report }}' >> $GITHUB_STEP_SUMMARY
+
+      - name: Write eslint report to workflow job summary
+        id: write-eslint-report
+        if: ${{ always() }}
+        run: |
+          FILE=report/eslint/eslint.json
+          if [ -f "$FILE" ]; then
+            npm_config_yes=true npx github:10up/eslint-json-to-md --path $FILE --output report/eslint/eslint.md
+            cat report/eslint/eslint.md >> $GITHUB_STEP_SUMMARY
+            
+            REPORT_CONTENT=$(cat report/eslint/eslint.md)
+            REPORT_CONTENT="${REPORT_CONTENT//'%'/'%25'}"
+            REPORT_CONTENT="${REPORT_CONTENT//$'\n'/'%0A'}"
+            REPORT_CONTENT="${REPORT_CONTENT//$'\r'/'%0D'}"
+            echo "::set-output name=report::$REPORT_CONTENT"
+
+          else
+            echo "::set-output name=report::No issue, Great!"
+          fi
+
+      - name: Attach sonarqube report to PR
+        uses: marocchino/sticky-pull-request-comment@v2
+        if: ${{ always() && steps.sonarqube-scan.outcome != 'skipped' }}
+        with:
+          header: sonarqube-report
+          message: |
+            ## SonarQube report
+
+            Quality Gate Result: **${{ steps.sonarqube-quality-gate.outputs.quality-gate-status }}**
+            Detail: ${{ steps.sonarqube-scan.outputs.sonarqube-report-url }}
+
+      - name: Attached coverage report to PR
+        uses: marocchino/sticky-pull-request-comment@v2
+        if: ${{ always() }}
+        with:
+          header: coverage-report
+          message: ${{ steps.coverage.outputs.report }}
+
+      - name: Attached eslint report to PR
+        uses: marocchino/sticky-pull-request-comment@v2
+        if: ${{ always() }}
+        with:
+          header: eslint-report
+          path: report/eslint/eslint.md
+
+      - name: Attach sonarqube check status
+        uses: LouisBrunner/checks-action@v1.6.1
+        if: ${{ always() && steps.sonarqube-scan.outcome != 'skipped' }}
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          name: Sonarqube report
+          conclusion: ${{ steps.sonarqube-quality-gate.outcome }}
+          output: |
+            {"summary":"## SonarQube report\n\nQuality Gate Result: **${{ steps.sonarqube-quality-gate.outputs.quality-gate-status }}**\nDetail: ${{ steps.sonarqube-scan.outputs.sonarqube-report-url }}"}
+
+      - name: Attach coverage check status
+        uses: LouisBrunner/checks-action@v1.6.1
+        if: ${{ always() }}
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          name: Coverage report
+          conclusion: ${{ steps.coverage.outcome }}
+          output: |
+            {"summary": ${{ toJSON(steps.coverage.outputs.report) }}}
+
+      - name: Attach eslint check status
+        uses: LouisBrunner/checks-action@v1.6.1
+        if: ${{ always() }}
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          name: ESlint report
+          conclusion: ${{ steps.execute-lint.outcome }}
+          output: |
+            {"summary": ${{ toJSON(steps.write-eslint-report.outputs.report) }}}
+
+  audit:
+    name: Security audit
+    runs-on: [self-hosted]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Use Node.js 18.x
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18.x
+          registry-url: https://npm.pkg.github.com/
+          scope: '@ocean-network-express'
+
+      - name: Cache node modules
+        id: cache-npm
+        uses: actions/cache@v3
+        env:
+          cache-name: cache-node-modules
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-build-${{ env.cache-name }}-
+            ${{ runner.os }}-build-
+            ${{ runner.os }}-
+
+      - if: ${{ steps.cache-npm.outputs.cache-hit != 'true' }}
+        name: List the state of node modules
+        continue-on-error: true
+        run: npm list
+
+      - name: install dependencies
+        run: npm ci
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GH_REGISTRY_PACKAGES }}
+
+      - name: npm audit
+        id: npm-audit
+        run: |
+          status=0
+          mkdir -p report
+          npm install -g npm-audit-markdown
+          npm audit --json --audit-level=high > report/npm-audit.json || status=$?
+          npm-audit-markdown --input=report/npm-audit.json --output report/npm-audit.md || true
+          exit $status
+
+      - name: Write npm-audit report to workflow job summary
+        id: write-npm-audit-report
+        if: ${{ always() }}
+        run: |
+          cat report/npm-audit.md >> $GITHUB_STEP_SUMMARY
+
+          REPORT_CONTENT=$(cat report/npm-audit.md)
+          REPORT_CONTENT="${REPORT_CONTENT//'%'/'%25'}"
+          REPORT_CONTENT="${REPORT_CONTENT//$'\n'/'%0A'}"
+          REPORT_CONTENT="${REPORT_CONTENT//$'\r'/'%0D'}"
+          echo "::set-output name=report::$REPORT_CONTENT"
+
+      - name: Attach npm-audit report to PR
+        uses: marocchino/sticky-pull-request-comment@v2
+        if: ${{ always() }}
+        with:
+          header: npm-audit-report
+          path: report/npm-audit.md
+
+      - name: Attach npm-audit check status
+        uses: LouisBrunner/checks-action@v1.6.1
+        if: ${{ always() }}
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          name: Npm-audit report
+          conclusion: ${{ steps.npm-audit.outcome }}
+          output: |
+            {"summary": ${{ toJSON(steps.write-npm-audit-report.outputs.report) }}}

@@ -1,0 +1,13 @@
+type DocQueue {
+  id: Int,
+  bookingNumber: String
+}
+
+input CreateDocQueueInput {
+  id: Int,
+  bookingNumber: String
+}
+
+type Mutation {
+  createDocQueue(createDocQueueInput: CreateDocQueueInput!): DocQueue!
+}

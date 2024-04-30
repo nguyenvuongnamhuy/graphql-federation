@@ -1,0 +1,32 @@
+name: Deploy To Test Env
+
+on:
+  push:
+    branches:
+      - 'test'
+
+  workflow_dispatch:
+
+jobs:
+  build-image:
+    uses: ./.github/workflows/cd.yml
+    with:
+      environment: test
+      envVariableFilePath: ./.github/variables/test.deployment.env
+    secrets:
+      GCP_SERVICE_ACCOUNT_KEY: ${{ secrets.GCP_SERVICE_ACCOUNT_KEY }}
+      ARTIFACT_REGISTRY_DOMAIN: ${{ secrets.ARTIFACT_REGISTRY_DOMAIN }}
+      ARTIFACT_REGISTRY_REPOSITORY: ${{ secrets.ARTIFACT_REGISTRY_REPOSITORY }}
+      ARTIFACT_REGISTRY_IMAGE: ${{ secrets.ARTIFACT_REGISTRY_IMAGE }}
+
+  sync:
+    name: Run K8s Process
+    needs: build-image
+    uses: ./.github/workflows/sync.yml
+    with:
+      environment: test
+
+    secrets:
+      PAT_TOKEN: ${{ secrets.PAT_TOKEN }}
+      ARTIFACT_REGISTRY_REPOSITORY: ${{ secrets.ARTIFACT_REGISTRY_REPOSITORY }}
+      ARTIFACT_REGISTRY_IMAGE: ${{ secrets.ARTIFACT_REGISTRY_IMAGE }}
