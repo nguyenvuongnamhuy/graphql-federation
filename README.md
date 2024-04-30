@@ -1,10 +1,19 @@
-1. npm install
+## Install
 
-2. npm run start:dev
+```bash
+npm i
+```
 
-3. access http://localhost:3030
+## Start
 
-Input:
+```bash
+npm run start:dev
+```
+
+## Send Request
+
+1. Access to http://localhost:3030
+2. Input then run:
 
 ```bash
 query {
