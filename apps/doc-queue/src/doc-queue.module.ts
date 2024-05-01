@@ -3,6 +3,7 @@ import { DocQueueService } from './doc-queue.service';
 import { DocQueueResolver } from './doc-queue.resolver';
 import { GraphQLModule } from '@nestjs/graphql';
 import { ApolloFederationDriver, ApolloFederationDriverConfig } from '@nestjs/apollo';
+// import { ApolloServerPluginInlineTraceDisabled } from '@apollo/server/plugin/disabled';
 import { ConfigModule } from '@nestjs/config';
 import { getLoggerOptions } from 'apps/shared/config/logger.config';
 import { LoggerModule } from 'apps/shared/logger/logger.module';
@@ -18,6 +19,7 @@ import { DocsGrpcClientProvider } from './doc-queue.provider';
     HealthModule,
     GraphQLModule.forRoot<ApolloFederationDriverConfig>({
       driver: ApolloFederationDriver,
+      // plugins: [ApolloServerPluginInlineTraceDisabled()], // enabling inline tracing for this subgraph.
       autoSchemaFile: {
         federation: 2,
       },

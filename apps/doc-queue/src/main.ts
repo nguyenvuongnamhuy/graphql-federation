@@ -25,7 +25,7 @@ async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(DocQueueModule, {
     cors: {
       origin: '*',
-      methods: 'GET,HEAD,PUT,POST,DELETE',
+      // methods: 'GET,HEAD,PUT,POST,DELETE',
     },
   });
 
@@ -40,7 +40,7 @@ async function bootstrap() {
 
   app.useGlobalPipes(
     new ValidationPipe({
-      whitelist: true,
+      // whitelist: true,
       transform: true,
     }),
   );
