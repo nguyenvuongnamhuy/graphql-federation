@@ -21,7 +21,7 @@ export class DocQueueService {
 
   createDocQueue(createDocQueueInput: CreateDocQueueInput): DocQueue {
     try {
-      return new DocQueue({ id: createDocQueueInput.id || '1', bookingNumber: createDocQueueInput.bookingNumber || 'ABC' });
+      return DocQueue.toDomain(createDocQueueInput);
     } catch (error) {
       this.logger.log({
         error: error,

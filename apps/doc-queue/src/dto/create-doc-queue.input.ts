@@ -1,10 +1,10 @@
-import { InputType, Field, Int } from '@nestjs/graphql';
+import { InputType, Field } from '@nestjs/graphql';
 
 @InputType()
 export class CreateDocQueueInput {
-  @Field(() => Int)
-  id: number;
-
   @Field(() => String)
-  bookingNumber: string;
+  id: string;
+
+  @Field(() => String, { nullable: true })
+  bookingNumber?: string;
 }

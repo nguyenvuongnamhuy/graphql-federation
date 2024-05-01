@@ -27,12 +27,8 @@ export class DocQueueResolver {
       const result = await firstValueFrom(this.docQueueService.getQueueList('blink', request));
       const response = HttpApiResponse.handle<DocQueuePagination>(result);
       this.logger.log({ response });
-      const data = response.data.items.map((d) => {
-        return {
-          id: d.id,
-          bookingNumber: d.bookingNumber,
-        };
-      });
+
+      const data = DocQueue.toDomains(response.data.items);
       return data;
     } catch (err) {
       throw new GrpcException(err);
