@@ -33,3 +33,24 @@ query {
   }
 }
 ```
+
+Or
+
+```bash
+mutation {
+  createDocQueue (createDocQueueInput: { id: "123", bookingNumber: "bookingNumber" }) {
+    id,
+    bookingNumber
+  }
+  createUser(createUserInput: { id: 123, email: "test@gmail.com" }) {
+    id,
+    email
+  }
+  createPost(createPostInput: { id: 456, title: "post title" }) {
+    id,
+    title
+  }
+}
+```
+
+---
