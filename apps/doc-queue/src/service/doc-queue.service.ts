@@ -1,7 +1,7 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
-import { CreateDocQueueInput } from './dto/create-doc-queue.input';
-import { DocQueue } from './entities/doc-queue.entity';
-import { DOC_QUEUE_SERVICE_NAME, DocQueueListRequest, DocQueueListResponse, DocQueueServiceClient } from './proto/doc-queue';
+import { CreateDocQueueInput } from '../dto/create-doc-queue.input';
+import { DocQueue } from '../entities/doc-queue.entity';
+import { DOC_QUEUE_SERVICE_NAME, DocQueueListRequest, DocQueueListResponse, DocQueueServiceClient } from '../proto/doc-queue';
 import { Observable } from 'rxjs';
 import { MetadataEx } from 'apps/shared/util/grpc-metadata.util';
 import { DOCS_CLIENT_SERVICE } from 'apps/shared/constant';

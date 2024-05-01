@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
-import { DocQueueService } from './doc-queue.service';
-import { DocQueueResolver } from './doc-queue.resolver';
+import { DocQueueService } from './service/doc-queue.service';
+import { DocQueueResolver } from './resolver/doc-queue.resolver';
 import { GraphQLModule } from '@nestjs/graphql';
 import { ApolloFederationDriver, ApolloFederationDriverConfig } from '@nestjs/apollo';
 // import { ApolloServerPluginInlineTraceDisabled } from '@apollo/server/plugin/disabled';

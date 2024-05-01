@@ -1,6 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { DocQueueResolver } from './doc-queue.resolver';
-import { DocQueueService } from './doc-queue.service';
+import { DocQueueService } from '../service/doc-queue.service';
 
 describe('DocQueueResolver', () => {
   let resolver: DocQueueResolver;

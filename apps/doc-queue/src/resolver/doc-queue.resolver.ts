@@ -1,10 +1,10 @@
 import { Resolver, Mutation, Args, Query } from '@nestjs/graphql';
-import { DocQueueService } from './doc-queue.service';
-import { CreateDocQueueInput } from './dto/create-doc-queue.input';
-import { DocQueue } from './entities/doc-queue.entity';
+import { DocQueueService } from '../service/doc-queue.service';
+import { CreateDocQueueInput } from '../dto/create-doc-queue.input';
+import { DocQueue } from '../entities/doc-queue.entity';
 import { Logger } from '@nestjs/common';
 import { HttpApiResponse } from 'apps/shared/response/api-restful.response';
-import { DocQueueListRequest, DocQueuePagination } from './proto/doc-queue';
+import { DocQueueListRequest, DocQueuePagination } from '../proto/doc-queue';
 import { firstValueFrom } from 'rxjs';
 import { GrpcException } from 'apps/shared/filter/grpc/grpc.exception';
 
